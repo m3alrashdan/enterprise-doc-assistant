@@ -1,0 +1,37 @@
+# Web framework
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+
+# Validation / settings
+pydantic>=2.7
+pydantic-settings>=2.5
+
+# Persistence
+sqlalchemy[asyncio]>=2.0
+aiosqlite>=0.20
+
+# RAG orchestration
+langchain-core>=0.3
+langchain-text-splitters>=0.3
+
+# Vector store
+chromadb>=1.0
+
+# Embeddings / reranking (torch is installed separately with the CPU index; see Makefile)
+sentence-transformers>=3.0
+
+# LLM providers
+openai>=1.40
+httpx>=0.27
+
+# Document loaders
+pypdf>=4.2
+python-docx>=1.1
+beautifulsoup4>=4.12
+
+# Hybrid search
+rank-bm25>=0.2.2
+
+# API quality
+slowapi>=0.1.9

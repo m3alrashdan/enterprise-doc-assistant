@@ -1,0 +1,49 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      # Talk to the chromadb service instead of an embedded store.
+      CHROMA_MODE: http
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: 8000
+      DATA_DIR: /srv/app/data
+      DATABASE_URL: sqlite+aiosqlite:////srv/app/data/app.db
+      # When the ollama profile is enabled, reach it by service name.
+      OLLAMA_BASE_URL: http://ollama:11434
+      API_KEYS: ${API_KEYS:-dev-secret-key}
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - app-data:/srv/app/data
+    depends_on:
+      - chromadb
+    restart: unless-stopped
+
+  chromadb:
+    image: chromadb/chroma:latest
+    volumes:
+      - chroma-data:/data
+    ports:
+      - "8001:8000"
+    restart: unless-stopped
+
+  # Optional local LLM: docker compose --profile ollama up
+  # Then pull a model once: docker compose exec ollama ollama pull llama3.1
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ollama"]
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+
+volumes:
+  app-data:
+  chroma-data:
+  ollama-data:

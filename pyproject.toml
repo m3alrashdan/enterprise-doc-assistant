@@ -1,0 +1,55 @@
+[project]
+name = "enterprise-doc-assistant"
+version = "0.1.0"
+description = "Intelligent Enterprise Document Assistant - RAG-based QA over internal documents"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [".venv", "data", "build", "dist"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+    "C4",  # flake8-comprehensions
+]
+ignore = [
+    "B008", # function call in argument defaults -- FastAPI Depends() idiom
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["SIM117"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311", "py312"]
+exclude = '/(\.venv|data|build|dist)/'
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["app/services", "app/rag"]
+omit = ["*/__init__.py"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]

@@ -1,0 +1,15 @@
+.git
+.venv
+venv
+data
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+.env
+*.pdf
+docs
+tests
+sample_data
