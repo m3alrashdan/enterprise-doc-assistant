@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enterprise Document Assistant</title>
+<style>
+  :root { --bg:#f6f7f9; --panel:#ffffff; --line:#e3e6ea; --text:#1c2733; --muted:#68727d;
+          --accent:#2563eb; --accent-soft:#eff4ff; --ok:#16a34a; --warn:#d97706; --err:#dc2626; }
+  * { box-sizing:border-box; margin:0; }
+  body { font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg);
+         color:var(--text); height:100vh; display:flex; flex-direction:column; }
+  header { display:flex; align-items:center; gap:12px; padding:10px 18px; background:var(--panel);
+           border-bottom:1px solid var(--line); }
+  header h1 { font-size:16px; margin-right:auto; }
+  header input { padding:6px 10px; border:1px solid var(--line); border-radius:6px; width:180px; }
+  main { flex:1; display:grid; grid-template-columns:300px 1fr; min-height:0; }
+  /* documents panel */
+  #docs { border-right:1px solid var(--line); background:var(--panel); display:flex;
+          flex-direction:column; min-height:0; }
+  #docs .head { padding:12px 14px; border-bottom:1px solid var(--line); display:flex;
+                justify-content:space-between; align-items:center; }
+  #docs .head b { font-size:13px; }
+  #doclist { flex:1; overflow-y:auto; padding:8px; }
+  .doc { padding:8px 10px; border:1px solid var(--line); border-radius:8px; margin-bottom:6px;
+         display:flex; align-items:center; gap:8px; }
+  .doc .name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+  .doc .meta { color:var(--muted); font-size:11px; }
+  .badge { font-size:10px; padding:2px 7px; border-radius:10px; color:#fff; text-transform:uppercase; }
+  .badge.ready { background:var(--ok); } .badge.failed { background:var(--err); }
+  .badge.pending,.badge.processing { background:var(--warn); }
+  .doc button { border:none; background:none; color:var(--muted); cursor:pointer; font-size:14px; }
+  .doc button:hover { color:var(--err); }
+  #upload { margin:10px; }
+  button.primary { background:var(--accent); color:#fff; border:none; border-radius:8px;
+                   padding:9px 14px; cursor:pointer; font-size:13px; width:calc(100% - 0px); }
+  button.primary:disabled { opacity:.5; cursor:default; }
+  /* chat panel */
+  #chat { display:flex; flex-direction:column; min-height:0; }
+  #messages { flex:1; overflow-y:auto; padding:20px 8%; }
+  .msg { max-width:760px; margin:0 auto 14px; padding:12px 16px; border-radius:12px;
+         white-space:pre-wrap; word-wrap:break-word; }
+  .msg.user { background:var(--accent-soft); border:1px solid #d8e4ff; }
+  .msg.assistant { background:var(--panel); border:1px solid var(--line); }
+  .msg .cites { margin-top:10px; border-top:1px dashed var(--line); padding-top:8px;
+                font-size:12px; color:var(--muted); }
+  .msg .cites div { margin-top:4px; }
+  .cite-ref { color:var(--accent); font-weight:600; }
+  #composer { display:flex; gap:10px; padding:14px 8%; border-top:1px solid var(--line);
+              background:var(--panel); }
+  #composer textarea { flex:1; resize:none; height:48px; padding:12px; border-radius:10px;
+                       border:1px solid var(--line); font:inherit; }
+  #composer button { width:auto; padding:0 22px; }
+  #newchat { background:none; border:1px solid var(--line); border-radius:6px; padding:6px 10px;
+             cursor:pointer; color:var(--muted); font-size:12px; }
+  .hint { text-align:center; color:var(--muted); margin-top:30vh; }
+  .error-text { color:var(--err); }
+</style>
+</head>
+<body>
+<header>
+  <h1>&#128218; Enterprise Document Assistant</h1>
+  <button id="newchat">New chat</button>
+  <input id="apikey" type="password" placeholder="API key (X-API-Key)">
+</header>
+<main>
+  <section id="docs">
+    <div class="head"><b>Documents</b><span id="doccount" class="meta"></span></div>
+    <div id="doclist"></div>
+    <div id="upload">
+      <input type="file" id="fileinput" multiple hidden
+             accept=".pdf,.docx,.txt,.md,.html,.htm">
+      <button class="primary" id="uploadbtn">Upload documents</button>
+    </div>
+  </section>
+  <section id="chat">
+    <div id="messages"><div class="hint">Upload documents, then ask a question.</div></div>
+    <div id="composer">
+      <textarea id="question" placeholder="Ask about your documents… (Enter to send)"></textarea>
+      <button class="primary" id="send">Send</button>
+    </div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let conversationId = null;
+let busy = false;
+
+$("apikey").value = localStorage.getItem("apiKey") || "dev-secret-key";
+$("apikey").addEventListener("change", () => localStorage.setItem("apiKey", $("apikey").value));
+const headers = (extra = {}) => ({ "X-API-Key": $("apikey").value, ...extra });
+
+/* ---------------- documents ---------------- */
+async function refreshDocs() {
+  try {
+    const res = await fetch("/api/v1/documents?page_size=100", { headers: headers() });
+    if (!res.ok) return;
+    const body = await res.json();
+    $("doccount").textContent = body.total + " total";
+    $("doclist").innerHTML = "";
+    let polling = false;
+    for (const doc of body.items) {
+      if (doc.status === "pending" || doc.status === "processing") polling = true;
+      const row = document.createElement("div");
+      row.className = "doc";
+      row.innerHTML = `
+        <div style="flex:1;min-width:0">
+          <div class="name" title="${doc.filename}">${doc.filename}</div>
+          <div class="meta">${doc.chunk_count} chunks${doc.page_count ? " · " + doc.page_count + " pages" : ""}${doc.error ? " · " + doc.error : ""}</div>
+        </div>
+        <span class="badge ${doc.status}">${doc.status}</span>
+        <button title="Delete">&#10005;</button>`;
+      row.querySelector("button").onclick = async () => {
+        await fetch("/api/v1/documents/" + doc.id, { method: "DELETE", headers: headers() });
+        refreshDocs();
+      };
+      $("doclist").appendChild(row);
+    }
+    if (polling) setTimeout(refreshDocs, 2000);
+  } catch (e) { /* server offline; retry on next action */ }
+}
+
+$("uploadbtn").onclick = () => $("fileinput").click();
+$("fileinput").onchange = async () => {
+  const form = new FormData();
+  for (const file of $("fileinput").files) form.append("files", file);
+  $("uploadbtn").disabled = true;
+  try {
+    const res = await fetch("/api/v1/documents/upload", {
+      method: "POST", headers: headers(), body: form,
+    });
+    const body = await res.json();
+    const rejected = (body.results || []).filter((r) => !r.accepted && r.status === "rejected");
+    if (rejected.length) alert(rejected.map((r) => r.filename + ": " + r.detail).join("\n"));
+  } finally {
+    $("uploadbtn").disabled = false;
+    $("fileinput").value = "";
+    refreshDocs();
+  }
+};
+
+/* ---------------- chat ---------------- */
+function addMessage(cls, text) {
+  if ($("messages").querySelector(".hint")) $("messages").innerHTML = "";
+  const el = document.createElement("div");
+  el.className = "msg " + cls;
+  el.textContent = text;
+  $("messages").appendChild(el);
+  $("messages").scrollTop = $("messages").scrollHeight;
+  return el;
+}
+
+function renderCitations(el, citations) {
+  if (!citations || !citations.length) return;
+  const box = document.createElement("div");
+  box.className = "cites";
+  box.innerHTML = "<b>Sources</b>";
+  for (const c of citations) {
+    const line = document.createElement("div");
+    const where = [c.document_name, c.page ? "p." + c.page : null, c.section]
+      .filter(Boolean).join(" · ");
+    line.innerHTML = `<span class="cite-ref">[${c.index}]</span> ${where} — <i>${c.snippet}</i>`;
+    box.appendChild(line);
+  }
+  el.appendChild(box);
+  $("messages").scrollTop = $("messages").scrollHeight;
+}
+
+async function send() {
+  const question = $("question").value.trim();
+  if (!question || busy) return;
+  busy = true; $("send").disabled = true; $("question").value = "";
+  addMessage("user", question);
+  const el = addMessage("assistant", "…");
+
+  try {
+    const res = await fetch("/api/v1/chat/stream", {
+      method: "POST",
+      headers: headers({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ question, conversation_id: conversationId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      el.textContent = (err && err.error && err.error.message) || ("Request failed: " + res.status);
+      el.classList.add("error-text");
+      return;
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "", answer = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let sep;
+      while ((sep = buffer.indexOf("\n\n")) >= 0) {
+        const block = buffer.slice(0, sep); buffer = buffer.slice(sep + 2);
+        const event = (block.match(/^event: (.*)$/m) || [])[1];
+        const dataLine = (block.match(/^data: (.*)$/m) || [])[1];
+        if (!event || !dataLine) continue;
+        const data = JSON.parse(dataLine);
+        if (event === "token") {
+          answer += data.text;
+          el.textContent = answer;
+          $("messages").scrollTop = $("messages").scrollHeight;
+        } else if (event === "done") {
+          conversationId = data.conversation_id;
+          el.textContent = data.answer;
+          renderCitations(el, data.citations);
+        } else if (event === "error") {
+          el.textContent = data.message || "Something went wrong.";
+          el.classList.add("error-text");
+        }
+      }
+    }
+  } catch (e) {
+    el.textContent = "Network error: " + e.message;
+    el.classList.add("error-text");
+  } finally {
+    busy = false; $("send").disabled = false;
+  }
+}
+
+$("send").onclick = send;
+$("question").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+});
+$("newchat").onclick = () => {
+  conversationId = null;
+  $("messages").innerHTML = '<div class="hint">New conversation. Ask away.</div>';
+};
+
+refreshDocs();
+</script>
+</body>
+</html>

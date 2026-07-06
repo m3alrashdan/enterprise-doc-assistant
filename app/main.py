@@ -5,8 +5,10 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI
+from fastapi.responses import FileResponse
 
 from app.api.errors import register_exception_handlers
 from app.api.health import router as health_router
@@ -90,6 +92,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             429: {"model": ErrorEnvelope, "description": "Rate limit exceeded"},
         },
     )
+
+    # Minimal demo UI (upload + chat). The page itself is public; every API
+    # call it makes still requires the X-API-Key header.
+    index_page = Path(__file__).resolve().parent.parent / "static" / "index.html"
+    if index_page.exists():
+
+        @app.get("/", include_in_schema=False)
+        async def ui_index() -> FileResponse:
+            return FileResponse(index_page)
+
     return app
 
 

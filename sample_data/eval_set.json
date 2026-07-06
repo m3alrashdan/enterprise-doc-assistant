@@ -1,0 +1,32 @@
+[
+  {
+    "question": "How many vacation days do full-time employees accrue per year?",
+    "expected_document": "employee_handbook.pdf",
+    "expected_keywords": ["20"]
+  },
+  {
+    "question": "What is the minimum password length required?",
+    "expected_document": "security_policy.md",
+    "expected_keywords": ["12"]
+  },
+  {
+    "question": "How often are laptops refreshed?",
+    "expected_document": "it_support_faq.html",
+    "expected_keywords": ["three years", "3 years"]
+  },
+  {
+    "question": "What is the daily reimbursement limit for meal expenses?",
+    "expected_document": "employee_handbook.pdf",
+    "expected_keywords": ["50"]
+  },
+  {
+    "question": "Within how many hours must security incidents be reported?",
+    "expected_document": "security_policy.md",
+    "expected_keywords": ["24"]
+  },
+  {
+    "question": "How long are financial records retained?",
+    "expected_document": "security_policy.md",
+    "expected_keywords": ["7 years", "seven years"]
+  }
+]
