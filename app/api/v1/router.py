@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-api_v1_router = APIRouter()
+from app.api.v1.documents import router as documents_router
 
-# Feature routers (documents, chat) are included here as they are implemented.
+api_v1_router = APIRouter()
+api_v1_router.include_router(documents_router)

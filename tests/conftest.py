@@ -18,25 +18,32 @@ from app.main import create_app
 TEST_API_KEY = "test-key"
 
 
+def make_test_settings(tmp_path, **overrides) -> Settings:
+    """Fully offline settings: fake providers, temp storage."""
+    defaults: dict = {
+        "environment": "test",
+        "log_json": False,
+        "log_level": "WARNING",
+        "data_dir": tmp_path / "data",
+        "database_url": f"sqlite+aiosqlite:///{tmp_path}/test.db",
+        "chroma_mode": "embedded",
+        "chroma_persist_dir": tmp_path / "chroma",
+        "embedding_provider": "fake",
+        "llm_provider": "fake",
+        "api_keys": [TEST_API_KEY],
+        "rate_limit_enabled": False,
+        "chunk_size": 200,
+        "chunk_overlap": 40,
+        "similarity_threshold": -1.0,  # fake embeddings produce arbitrary similarities
+    }
+    defaults.update(overrides)
+    # _env_file=None: never read the developer's .env in tests
+    return Settings(_env_file=None, **defaults)
+
+
 @pytest.fixture
 def test_settings(tmp_path) -> Settings:
-    return Settings(
-        _env_file=None,  # never read the developer's .env in tests
-        environment="test",
-        log_json=False,
-        log_level="WARNING",
-        data_dir=tmp_path / "data",
-        database_url=f"sqlite+aiosqlite:///{tmp_path}/test.db",
-        chroma_mode="embedded",
-        chroma_persist_dir=tmp_path / "chroma",
-        embedding_provider="fake",
-        llm_provider="fake",
-        api_keys=[TEST_API_KEY],
-        rate_limit_enabled=False,
-        chunk_size=200,
-        chunk_overlap=40,
-        similarity_threshold=-1.0,  # fake embeddings produce arbitrary similarities
-    )
+    return make_test_settings(tmp_path)
 
 
 @pytest.fixture
