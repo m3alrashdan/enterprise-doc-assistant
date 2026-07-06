@@ -95,9 +95,10 @@ class DocumentService:
             tag=tag,
         )
         await self._repository.create(record)
+        # NB: "filename" is a reserved LogRecord attribute; use "document_name"
         logger.info(
             "document registered",
-            extra={"document_id": document_id, "filename": safe_name, "bytes": len(content)},
+            extra={"document_id": document_id, "document_name": safe_name, "bytes": len(content)},
         )
         return record
 

@@ -55,13 +55,16 @@ def main() -> int:
 
     deadline = time.time() + 300
     while pending and time.time() < deadline:
-        time.sleep(1.5)
+        time.sleep(3)  # gentle polling: stays well inside the default rate limit
         for document_id in list(pending):
-            doc = client.get(f"/api/v1/documents/{document_id}").json()
+            response = client.get(f"/api/v1/documents/{document_id}")
+            if response.status_code != 200:  # e.g. transient 429; retry next round
+                continue
+            doc = response.json()
             if doc["status"] in ("ready", "failed"):
                 name = pending.pop(document_id)
                 detail = f" ({doc['error']})" if doc.get("error") else ""
-                print(f"  {name:<28} -> {doc['status']}: " f"{doc['chunk_count']} chunks{detail}")
+                print(f"  {name:<28} -> {doc['status']}: {doc['chunk_count']} chunks{detail}")
 
     if pending:
         print(f"timed out waiting for: {list(pending.values())}")

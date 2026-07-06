@@ -23,7 +23,9 @@ def make_test_settings(tmp_path, **overrides) -> Settings:
     defaults: dict = {
         "environment": "test",
         "log_json": False,
-        "log_level": "WARNING",
+        # INFO so log records are actually created: catches reserved-key
+        # collisions in `extra={...}` that WARNING level would skip.
+        "log_level": "INFO",
         "data_dir": tmp_path / "data",
         "database_url": f"sqlite+aiosqlite:///{tmp_path}/test.db",
         "chroma_mode": "embedded",
