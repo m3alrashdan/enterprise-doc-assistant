@@ -21,10 +21,14 @@ from app.rag.chunking.base import ChunkingStrategy
 from app.rag.chunking.factory import build_chunker
 from app.rag.embeddings.base import EmbeddingProvider
 from app.rag.embeddings.factory import build_embedding_provider
+from app.rag.llm.base import LLMProvider
+from app.rag.llm.factory import build_llm_provider
 from app.rag.vectorstore.base import VectorStore
 from app.rag.vectorstore.chroma import ChromaVectorStore
+from app.services.chat import ChatService
 from app.services.documents import DocumentService
 from app.services.ingestion import IngestionService
+from app.services.retrieval import RetrievalService
 
 logger = logging.getLogger("app.container")
 
@@ -43,8 +47,11 @@ class Container:
     vector_store: VectorStore
     embedder: EmbeddingProvider
     chunker: ChunkingStrategy
+    llm: LLMProvider
     document_service: DocumentService
     ingestion_service: IngestionService
+    retrieval_service: RetrievalService
+    chat_service: ChatService
 
     async def check_readiness(self) -> ReadinessReport:
         """Probe critical dependencies for the readiness endpoint."""
@@ -62,6 +69,11 @@ class Container:
             report["vector_store"] = (alive, "connected" if alive else "unreachable")
         except Exception as exc:
             report["vector_store"] = (False, str(exc))
+
+        try:
+            report["llm"] = await self.llm.health_check()
+        except Exception as exc:
+            report["llm"] = (False, str(exc))
 
         return report
 
@@ -84,9 +96,12 @@ async def build_container(settings: Settings) -> Container:
     vector_store = ChromaVectorStore(settings)
     embedder = build_embedding_provider(settings)
     chunker = build_chunker(settings)
+    llm = build_llm_provider(settings)
 
     document_service = DocumentService(settings, document_repo, vector_store)
     ingestion_service = IngestionService(settings, document_repo, vector_store, embedder, chunker)
+    retrieval_service = RetrievalService(settings, vector_store, embedder)
+    chat_service = ChatService(settings, retrieval_service, llm, conversation_repo)
 
     return Container(
         settings=settings,
@@ -96,6 +111,9 @@ async def build_container(settings: Settings) -> Container:
         vector_store=vector_store,
         embedder=embedder,
         chunker=chunker,
+        llm=llm,
         document_service=document_service,
         ingestion_service=ingestion_service,
+        retrieval_service=retrieval_service,
+        chat_service=chat_service,
     )
