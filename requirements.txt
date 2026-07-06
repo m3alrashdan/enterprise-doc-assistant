@@ -32,6 +32,3 @@ beautifulsoup4>=4.12
 
 # Hybrid search
 rank-bm25>=0.2.2
-
-# API quality
-slowapi>=0.1.9
