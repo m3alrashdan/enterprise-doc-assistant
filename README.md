@@ -1,5 +1,9 @@
 # Intelligent Enterprise Document Assistant
 
+[![CI](https://github.com/m3alrashdan/enterprise-doc-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/m3alrashdan/enterprise-doc-assistant/actions/workflows/ci.yml)
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
+![Coverage 87%](https://img.shields.io/badge/coverage-87%25-brightgreen)
+
 Enterprise question answering over internal documents using
 **Retrieval-Augmented Generation (RAG)**. Employees upload documents
 (PDF, DOCX, TXT, MD, HTML) and ask natural-language questions; the assistant
